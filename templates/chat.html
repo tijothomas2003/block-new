@@ -1,13 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>University Chat Room</title>
+
+    <!-- jQuery for ScrollPane -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jScrollPane/2.0.23/jquery.jscrollpane.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/jScrollPane/2.0.23/jquery.jscrollpane.min.css"
+    />
+
+    <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+      #chat-room {
+        width: 60%;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        background: #f9f9f9;
+      }
+      #messages {
+        height: 300px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        background: white;
+      }
+      input,
+      button {
+        margin-top: 10px;
+      }
+    </style>
   </head>
   <body>
     <h1>Welcome, {{ username }} ({{ role }})</h1>
+
     <div id="chat-room">
-      <div id="messages"></div>
+      <div id="messages" class="chat-list"></div>
       <input
         id="message-input"
         type="text"
@@ -15,50 +53,75 @@
       />
       <button id="send-btn">Send</button>
     </div>
+
     <div id="pending-messages">
       <h3>Pending Messages</h3>
     </div>
 
     <script>
-      const socket = io();
-      const username = "{{ username }}";
-      const role = "{{ role }}";
+      document.addEventListener('DOMContentLoaded', () => {
+        // Ensure username and role are correctly assigned
+        const username =
+          '{{ username }}' !== '{{ username }}' ? '{{ username }}' : 'Guest'
+        const role = '{{ role }}' !== '{{ role }}' ? '{{ role }}' : 'User'
 
-      document.getElementById("send-btn").addEventListener("click", () => {
-        const message = document.getElementById("message-input").value;
-        socket.emit("send_message", { username, message, role });
-      });
+        // Initialize Socket.IO connection
+        const socket = io('https://block-new-wkus.onrender.com', {
+          transports: ['websocket', 'polling'],
+        })
 
-      socket.on("new_pending_message", (message) => {
-        const pendingDiv = document.getElementById("pending-messages");
-        const msgDiv = document.createElement("div");
-        msgDiv.innerHTML = `
-                <p>${message.sender}: ${message.content}</p>
-                <button onclick="approveMessage(${JSON.stringify(
-                  message
-                )})">Approve</button>
-                <button onclick="rejectMessage(${JSON.stringify(
-                  message
-                )})">Reject</button>`;
-        pendingDiv.appendChild(msgDiv);
-      });
+        document.getElementById('send-btn').addEventListener('click', () => {
+          const message = document.getElementById('message-input').value.trim()
+          if (message !== '') {
+            socket.emit('send_message', { username, message, role })
+            document.getElementById('message-input').value = ''
+          }
+        })
 
-      socket.on("message_approved", (message) => {
-        const chatDiv = document.getElementById("messages");
-        chatDiv.innerHTML += `<p>${message.sender}: ${message.content}</p>`;
-      });
+        // Receive new pending messages
+        socket.on('new_pending_message', (message) => {
+          const pendingDiv = document.getElementById('pending-messages')
+          const msgDiv = document.createElement('div')
+          msgDiv.innerHTML = `
+                    <p>${message.sender}: ${message.content}</p>
+                    <button onclick="approveMessage('${message.id}')">Approve</button>
+                    <button onclick="rejectMessage('${message.id}')">Reject</button>`
+          pendingDiv.appendChild(msgDiv)
+        })
 
-      socket.on("message_rejected", (message) => {
-        alert(`${message.sender}'s message was rejected.`);
-      });
+        // Approve message
+        function approveMessage(messageId) {
+          socket.emit('approve_message', { messageId })
+        }
 
-      function approveMessage(message) {
-        socket.emit("approve_message", { message });
-      }
+        // Reject message
+        function rejectMessage(messageId) {
+          socket.emit('reject_message', { messageId })
+        }
 
-      function rejectMessage(message) {
-        socket.emit("reject_message", { message });
-      }
+        // Display approved messages in chat
+        socket.on('message_approved', (message) => {
+          const chatDiv = document.getElementById('messages')
+          const msgElement = document.createElement('p')
+          msgElement.innerHTML = `<strong>${message.sender}:</strong> ${message.content}`
+          chatDiv.appendChild(msgElement)
+          chatDiv.scrollTop = chatDiv.scrollHeight // Auto-scroll to bottom
+        })
+
+        // Notify if a message is rejected
+        socket.on('message_rejected', (message) => {
+          alert(`${message.sender}'s message was rejected.`)
+        })
+
+        // Apply jScrollPane if needed
+        $(function () {
+          if ($('#messages').length) {
+            $('#messages').jScrollPane({
+              mouseWheelSpeed: 30,
+            })
+          }
+        })
+      })
     </script>
   </body>
 </html>
