@@ -7,24 +7,25 @@ const server = http.createServer(app)
 
 const io = new Server(server, {
   cors: {
-    origin: 'https://block-new-wkus.onrender.com',
+    origin: ['https://block-new-wkus.onrender.com', 'http://localhost:5173'],
     methods: ['GET', 'POST'],
   },
 })
 
 io.on('connection', (socket) => {
-  console.log('A user connected')
+  console.log(`User connected: ${socket.id}`)
 
   socket.on('message', (data) => {
-    console.log('Message received:', data)
-    io.emit('message', data) // Broadcast to all clients
+    console.log(`Message from ${socket.id}:`, data)
+    io.emit('message', data)
   })
 
   socket.on('disconnect', () => {
-    console.log('A user disconnected')
+    console.log(`User disconnected: ${socket.id}`)
   })
 })
 
-server.listen(3000, () => {
-  console.log('Server is running on port 3000')
+const PORT = process.env.PORT || 3000
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`)
 })
